@@ -29,14 +29,19 @@ def pair_totals_with_excludes(total_rows, exclude_rows):
     return pairs
 
 
-def insert_adjusted_rows(sheet, pairs, total_label, exclude_label, label_col=1):
+def insert_adjusted_rows(sheet, pairs, total_label, exclude_label, label_col=1, label_template=None):
+    """Insert rows with adjusted totals using the given label template."""
+    if label_template is None:
+        label_template = "{total} (without {exclude})"
+
     offset = 0
     for total_row, exclude_row in pairs:
         tr = total_row + offset
         ex = exclude_row + offset
         sheet.insert_rows(tr + 1)
         label_cell = sheet.cell(row=tr + 1, column=label_col)
-        label_cell.value = f"{total_label} (without {exclude_label})"
+        label = label_template.format(total=total_label, exclude=exclude_label)
+        label_cell.value = label
         for col in range(label_col + 1, sheet.max_column + 1):
             total_cell = sheet.cell(row=tr, column=col)
             exclude_cell = sheet.cell(row=ex, column=col)
@@ -45,7 +50,7 @@ def insert_adjusted_rows(sheet, pairs, total_label, exclude_label, label_col=1):
         offset += 1
 
 
-def main(path, sheet_name, total_label, exclude_label):
+def main(path, sheet_name, total_label, exclude_label, label_template=None):
     wb = load_workbook(filename=path, data_only=False)
     if sheet_name not in wb.sheetnames:
         raise ValueError(f"Sheet '{sheet_name}' not found")
@@ -62,7 +67,7 @@ def main(path, sheet_name, total_label, exclude_label):
     if not pairs:
         raise ValueError("Could not pair total rows with exclude rows")
 
-    insert_adjusted_rows(ws, pairs, total_label, exclude_label)
+    insert_adjusted_rows(ws, pairs, total_label, exclude_label, label_template=label_template)
     wb.save(path)
 
 
@@ -72,6 +77,9 @@ if __name__ == "__main__":
     parser.add_argument("sheet_name", help="Sheet to modify")
     parser.add_argument("total_row_name", help="Label of total rows to adjust")
     parser.add_argument("exclude_row_name", help="Label of row to exclude from totals")
+    parser.add_argument("--label", dest="label_template", default=None,
+                        help="Custom label for the inserted rows. Use {total} and {exclude} to reference the input labels")
 
     args = parser.parse_args()
-    main(args.excel_file, args.sheet_name, args.total_row_name, args.exclude_row_name)
+    main(args.excel_file, args.sheet_name, args.total_row_name, args.exclude_row_name,
+         label_template=args.label_template)
